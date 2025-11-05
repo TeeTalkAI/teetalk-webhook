@@ -1,9 +1,3 @@
-"""
-TeeTalk AI - Simplified Multi-Tenant Webhook Server
-Optimized for Central Time Zone golf courses
-Flexible booking system integration
-"""
-
 from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
 import pytz
@@ -11,17 +5,13 @@ import os
 
 app = Flask(__name__)
 
-# ============ CONFIGURATION ============
-# All courses in Central Time - add your customers here!
-
 GOLF_COURSES = {
-    # EXAMPLE - Replace with your actual customers
     "cedar-ridge": {
         "name": "Cedar Ridge Golf Club",
         "phone": "+13193641111",
-        "booking_system": "call_for_details",  # Change when you know their system
+        "booking_system": "call_for_details",
         "api_credentials": {
-            "api_key": "",  # Add when you get their API access
+            "api_key": "",
             "facility_id": "",
             "username": "",
             "password": ""
@@ -51,13 +41,10 @@ GOLF_COURSES = {
     }
 }
 
-TIMEZONE = "America/Chicago"  # Central Time for all courses
+TIMEZONE = "America/Chicago"
 
-
-# ============ FUNCTION 1: Get Current Date/Time ============
 @app.route('/get_current_datetime', methods=['POST'])
 def get_current_datetime():
-    """Returns current Central Time date and time"""
     try:
         data = request.json or {}
         course_id = data.get('course_id', '')
@@ -83,13 +70,8 @@ def get_current_datetime():
         print(f"✗ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
-# ============ FUNCTION 2: Check Tee Times ============
 @app.route('/check_tee_times', methods=['POST'])
 def check_tee_times():
-    """
-    Checks tee times - adapts to whatever booking system the course uses
-    """
     try:
         data = request.json or {}
         course_id = data.get('course_id', '')
@@ -104,7 +86,6 @@ def check_tee_times():
         
         print(f"✓ [{course['name']}] Checking tee times for {date}")
         
-        # Demo mode - generates realistic tee times
         available_times = generate_demo_times(course, date, time_preference)
         
         if not available_times:
@@ -114,7 +95,6 @@ def check_tee_times():
                 'message': 'No tee times available for that date'
             })
         
-        # Natural response message
         if len(available_times) >= 2:
             message = f"Next available times are {available_times[0]['display_time']} and {available_times[1]['display_time']}"
         elif len(available_times) == 1:
@@ -136,11 +116,8 @@ def check_tee_times():
             'message': 'Having trouble checking availability right now'
         }), 500
 
-
-# ============ FUNCTION 3: Book Tee Time ============
 @app.route('/book_tee_time', methods=['POST'])
 def book_tee_time():
-    """Books a tee time"""
     try:
         data = request.json or {}
         course_id = data.get('course_id', '')
@@ -149,7 +126,6 @@ def book_tee_time():
         if not course:
             return jsonify({'error': 'Course not found'}), 400
         
-        # Get booking details
         date = data.get('date')
         time = data.get('time')
         player_name = data.get('player_name')
@@ -158,7 +134,6 @@ def book_tee_time():
         
         print(f"✓ [{course['name']}] Booking: {player_name}, {number_of_players}p on {date} at {time}")
         
-        # Demo booking
         confirmation_number = f"{course['name'][:2].upper()}-{datetime.now().strftime('%y%m%d%H%M')}"
         display_time = format_time(time)
         
@@ -182,11 +157,8 @@ def book_tee_time():
             'message': 'Unable to complete booking'
         }), 500
 
-
-# ============ FUNCTION 4: Get Course Info ============
 @app.route('/get_course_info', methods=['POST'])
 def get_course_info():
-    """Returns course information"""
     try:
         data = request.json or {}
         course_id = data.get('course_id', '')
@@ -210,11 +182,8 @@ def get_course_info():
         print(f"✗ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
-# ============ FUNCTION 5: Get Weather ============
 @app.route('/get_weather_conditions', methods=['POST'])
 def get_weather_conditions():
-    """Gets weather for the course location"""
     try:
         data = request.json or {}
         course_id = data.get('course_id', '')
@@ -223,7 +192,6 @@ def get_weather_conditions():
         if not course:
             return jsonify({'error': 'Course not found'}), 400
         
-        # Demo weather
         tz = pytz.timezone(TIMEZONE)
         current_hour = datetime.now(tz).hour
         
@@ -252,11 +220,7 @@ def get_weather_conditions():
         print(f"✗ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
-# ============ HELPER FUNCTIONS ============
-
 def generate_demo_times(course, date, preference=''):
-    """Generate demo tee times for testing"""
     tz = pytz.timezone(TIMEZONE)
     now = datetime.now(tz)
     request_date = datetime.strptime(date, '%Y-%m-%d')
@@ -287,19 +251,14 @@ def generate_demo_times(course, date, preference=''):
     return times[:5]
 
 def format_time(time_24hr):
-    """Convert 24hr to 12hr format"""
     hour, minute = map(int, time_24hr.split(':'))
     period = 'AM' if hour < 12 else 'PM'
     display_hour = hour if hour <= 12 else hour - 12
     display_hour = 12 if display_hour == 0 else display_hour
     return f"{display_hour}:{minute:02d} {period}"
 
-
-# ============ ADMIN/DEBUG ENDPOINTS ============
-
 @app.route('/admin/courses', methods=['GET'])
 def list_courses():
-    """List all configured courses"""
     courses = []
     for course_id, course_data in GOLF_COURSES.items():
         courses.append({
@@ -312,7 +271,6 @@ def list_courses():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check"""
     return jsonify({
         'status': 'healthy',
         'service': 'TeeTalk AI Central Time',
@@ -323,7 +281,6 @@ def health_check():
 
 @app.route('/', methods=['GET'])
 def root():
-    """API info"""
     return jsonify({
         'service': 'TeeTalk AI - Central Time Webhook Server',
         'timezone': TIMEZONE,
@@ -340,35 +297,17 @@ def root():
         'status': 'active'
     })
 
-
-# ============ RUN SERVER ============
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    print(f"\n{'='*60}")
-    print(f"🏌️  TeeTalk AI - Central Time Webhook Server")
-    print(f"{'='*60}")
-    print(f"🕐 Timezone: {TIMEZONE}")
-    print(f"📍 Configured Courses: {len(GOLF_COURSES)}")
-    for course_id, course in GOLF_COURSES.items():
-        print(f"   • {course['name']} ({course_id})")
-        print(f"     System: {course['booking_system']}")
-    print(f"\n🌐 Starting on port {port}")
-    print(f"{'='*60}\n")
-    
     app.run(host='0.0.0.0', port=port, debug=True)
 ```
 
-4. Scroll down and click **"Commit new file"**
+6. Scroll down and click **"Commit changes"**
+
+Render will automatically redeploy with the clean code!
 
 ---
 
-### **Step 2: Create requirements.txt on GitHub**
-
-1. Click **"Add file"** → **"Create new file"** again
-2. Name it: `requirements.txt`
-3. Paste this:
+**Wait 2 minutes, then test:**
 ```
-Flask==3.0.0
-pytz==2024.1
-requests==2.31.0
-gunicorn==21.2.0
+https://teetalk-webhook.onrender.com/health
