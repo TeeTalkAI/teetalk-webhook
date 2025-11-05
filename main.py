@@ -37,14 +37,37 @@ def get_current_datetime():
 @app.route('/check_tee_times', methods=['POST'])
 def check_tee_times():
     data = request.json or {}
-    course_id = data.get('course_id', '')
+    course_id = data.get('course_id', 'cedar-ridge')
     course = GOLF_COURSES.get(course_id)
     if not course:
         return jsonify({'error': 'Course not found'}), 400
+    
+    # If no date provided, use today
     date = data.get('date')
+    if not date:
+        tz = pytz.timezone(TIMEZONE)
+        date = datetime.now(tz).strftime('%Y-%m-%d')
+    
     available_times = generate_demo_times(course, date)
     message = f"Next available times are {available_times[0]['display_time']} and {available_times[1]['display_time']}" if len(available_times) >= 2 else "Let me check with the pro shop"
     return jsonify({'date': date, 'available_times': available_times[:5], 'message': message})
+```
+
+**Commit that change.**
+
+---
+
+## **Also Update the Prompt:**
+
+Make the prompt more explicit about the date format:
+```
+When someone asks about TEE TIMES:
+1. If they say "today", use today's date
+2. If they say "tomorrow", calculate tomorrow's date
+3. Format the date as YYYY-MM-DD (like 2025-11-05)
+4. Call check_tee_times with course_id=cedar-ridge and date=[the formatted date]
+5. Say "let me check what's available..."
+6. Read the times from the response and tell them
 
 @app.route('/book_tee_time', methods=['POST'])
 def book_tee_time():
