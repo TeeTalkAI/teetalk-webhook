@@ -71,7 +71,7 @@ def clamp_start_to_next_slot(current_minutes: int, slot_minutes: int = 10) -> in
 def validate_course(course_id: str):
     course = GOLF_COURSES.get(course_id)
     if not course:
-        return None, jsonify({"error": "Course not found"}), 400
+        return None, {"error": "Course not found"}, 400
     return course, None, None
 
 # -------------------------------
@@ -93,7 +93,7 @@ def generate_demo_times(course: dict, date: str):
         now_minutes = now.hour * 60 + now.minute
         start_min = max(open_min, clamp_start_to_next_slot(now_minutes, slot))
 
-    # Don’t generate past close
+    # Don't generate past close
     if start_min >= close_min:
         return []
 
@@ -132,9 +132,9 @@ def get_current_datetime():
 def check_tee_times():
     data = request.get_json(silent=True) or {}
     course_id = data.get("course_id", "cedar-ridge")
-    course, err_json, err_code = validate_course(course_id)
-    if err_json:
-        return err_json, err_code
+    course, err_dict, err_code = validate_course(course_id)
+    if err_dict:
+        return jsonify(err_dict), err_code
 
     # date default = today
     date = data.get("date")
@@ -147,7 +147,7 @@ def check_tee_times():
     elif len(slots) == 1:
         msg = f"Next available time is {slots[0]['display_time']}."
     else:
-        # If no slots remain today, offer tomorrow’s daybreak
+        # If no slots remain today, offer tomorrow's daybreak
         tomorrow = (now_local() + timedelta(days=1)).strftime("%Y-%m-%d")
         tomorrow_slots = generate_demo_times(course, tomorrow)
         if tomorrow_slots:
@@ -167,9 +167,9 @@ def book_tee_time():
     data = request.get_json(silent=True) or {}
 
     course_id = data.get("course_id", "")
-    course, err_json, err_code = validate_course(course_id)
-    if err_json:
-        return err_json, err_code
+    course, err_dict, err_code = validate_course(course_id)
+    if err_dict:
+        return jsonify(err_dict), err_code
 
     date = data.get("date")
     time_24 = data.get("time")
@@ -222,9 +222,9 @@ def book_tee_time():
 def get_course_info():
     data = request.get_json(silent=True) or {}
     course_id = data.get("course_id", "")
-    course, err_json, err_code = validate_course(course_id)
-    if err_json:
-        return err_json, err_code
+    course, err_dict, err_code = validate_course(course_id)
+    if err_dict:
+        return jsonify(err_dict), err_code
 
     return jsonify({
         "course_name": course["name"],
@@ -239,9 +239,9 @@ def get_course_info():
 def get_weather_conditions():
     data = request.get_json(silent=True) or {}
     course_id = data.get("course_id", "")
-    course, err_json, err_code = validate_course(course_id)
-    if err_json:
-        return err_json, err_code
+    course, err_dict, err_code = validate_course(course_id)
+    if err_dict:
+        return jsonify(err_dict), err_code
 
     hour = now_local().hour
     temp = 68 if 6 <= hour < 12 else 75 if 12 <= hour < 18 else 62
