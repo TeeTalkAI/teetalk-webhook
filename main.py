@@ -79,30 +79,31 @@ def validate_course(course_id: str):
 # -------------------------------
 def generate_demo_times(course: dict, date: str):
     """
-    Generates on-interval (10-min) tee-times between course opening and closing.
+    Generates on-interval (10-min) tee-times between course opening and last tee time.
     If date is today, excludes times earlier than 'now' (rounded up to next slot).
     Returns a list of {time: 'HH:MM', display_time: 'H:MM AM/PM', available_slots: 4}
     """
     open_min = hhmm_to_minutes(course["hours"]["open"])
     close_min = hhmm_to_minutes(course["hours"]["close"])
     slot = 10
-
+    
+    # Last tee time is 4:00 PM (16:00 = 960 minutes)
+    last_tee_time = 16 * 60  # 4:00 PM in minutes
+    
     start_min = open_min
     if is_today(date):
         now = now_local()
         now_minutes = now.hour * 60 + now.minute
         start_min = max(open_min, clamp_start_to_next_slot(now_minutes, slot))
 
-    # Don't generate past close
-    if start_min >= close_min:
+    # Don't generate past last tee time
+    if start_min >= last_tee_time:
         return []
 
     times = []
     t = start_min
-    # cap at 5 hours ahead to keep payload small but useful
-    hard_cap = min(close_min, start_min + 5 * 60)
 
-    while t < hard_cap:
+    while t <= last_tee_time:  # Changed to <= so 4:00 PM is included
         hhmm = minutes_to_hhmm(t)
         times.append({
             "time": hhmm,
