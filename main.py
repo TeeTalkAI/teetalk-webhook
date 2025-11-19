@@ -87,23 +87,33 @@ def generate_demo_times(course: dict, date: str):
     close_min = hhmm_to_minutes(course["hours"]["close"])
     slot = 10
     
-    # Last tee time is 4:00 PM (16:00 = 960 minutes)
-    last_tee_time = 16 * 60  # 4:00 PM in minutes
+    # Last tee time is 5:00 PM (17:00) - gives about 3 hours to finish before dark
+    last_tee_time = 17 * 60  # 5:00 PM in minutes
     
     start_min = open_min
     if is_today(date):
         now = now_local()
         now_minutes = now.hour * 60 + now.minute
-        start_min = max(open_min, clamp_start_to_next_slot(now_minutes, slot))
+        # Add 30 minute buffer for current time
+        start_min = max(open_min, clamp_start_to_next_slot(now_minutes + 30, slot))
+    
+    print(f"=" * 60)
+    print(f"GENERATING TIMES for {date}")
+    print(f"Is today: {is_today(date)}")
+    print(f"Start time: {minutes_to_hhmm(start_min)} ({start_min} minutes)")
+    print(f"End time: {minutes_to_hhmm(last_tee_time)} ({last_tee_time} minutes)")
+    print(f"Current time: {now_local().strftime('%H:%M')}")
 
     # Don't generate past last tee time
     if start_min >= last_tee_time:
+        print(f"ERROR: No times available - start >= end")
+        print(f"=" * 60)
         return []
 
     times = []
     t = start_min
 
-    while t <= last_tee_time:  # Changed to <= so 4:00 PM is included
+    while t < last_tee_time:
         hhmm = minutes_to_hhmm(t)
         times.append({
             "time": hhmm,
@@ -112,6 +122,12 @@ def generate_demo_times(course: dict, date: str):
         })
         t += slot
 
+    print(f"Generated {len(times)} time slots")
+    if len(times) > 0:
+        print(f"First time: {times[0]['display_time']}")
+        print(f"Last time: {times[-1]['display_time']}")
+    print(f"=" * 60)
+    
     return times
 
 # -------------------------------
@@ -139,6 +155,8 @@ def check_tee_times():
     data = request.get_json(silent=True) or {}
     args = data.get("args", data)  # Support both Retell format and direct calls
     
+    print(f"CHECK TEE TIMES REQUEST: {args}")
+    
     course_id = args.get("course_id", "cedar-ridge")
     course, err_dict, err_code = validate_course(course_id)
     if err_dict:
@@ -148,6 +166,8 @@ def check_tee_times():
     date = args.get("date")
     if not date:
         date = now_local().strftime("%Y-%m-%d")
+    
+    print(f"Checking times for date: {date}")
 
     slots = generate_demo_times(course, date)
     if len(slots) >= 2:
@@ -166,7 +186,7 @@ def check_tee_times():
     return jsonify({
         "course_id": course_id,
         "date": date,
-        "available_times": slots[:5],
+        "available_times": slots,  # Return ALL times, let agent filter
         "message": msg
     })
 
