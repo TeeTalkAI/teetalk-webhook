@@ -119,6 +119,10 @@ def generate_demo_times(course: dict, date: str):
 # -------------------------------
 @app.route("/get_current_datetime", methods=["POST"])
 def get_current_datetime():
+    # Retell sends: {"call": {...}, "name": "get_current_datetime", "args": {...}}
+    data = request.get_json(silent=True) or {}
+    args = data.get("args", data)  # Support both Retell format and direct calls
+    
     now = now_local()
     return jsonify({
         "current_date": now.strftime("%Y-%m-%d"),
@@ -131,14 +135,17 @@ def get_current_datetime():
 
 @app.route("/check_tee_times", methods=["POST"])
 def check_tee_times():
+    # Retell sends: {"call": {...}, "name": "check_tee_times", "args": {...}}
     data = request.get_json(silent=True) or {}
-    course_id = data.get("course_id", "cedar-ridge")
+    args = data.get("args", data)  # Support both Retell format and direct calls
+    
+    course_id = args.get("course_id", "cedar-ridge")
     course, err_dict, err_code = validate_course(course_id)
     if err_dict:
         return jsonify(err_dict), err_code
 
     # date default = today
-    date = data.get("date")
+    date = args.get("date")
     if not date:
         date = now_local().strftime("%Y-%m-%d")
 
@@ -165,27 +172,48 @@ def check_tee_times():
 
 @app.route("/book_tee_time", methods=["POST"])
 def book_tee_time():
+    # Retell sends: {"call": {...}, "name": "book_tee_time", "args": {...}}
     data = request.get_json(silent=True) or {}
+    args = data.get("args", data)  # Support both Retell format and direct calls
+    
+    print("=" * 50)
+    print("BOOKING REQUEST RECEIVED")
+    print(f"Full data: {data}")
+    print(f"Args extracted: {args}")
+    print("=" * 50)
 
-    course_id = data.get("course_id", "")
+    course_id = args.get("course_id", "")
     course, err_dict, err_code = validate_course(course_id)
     if err_dict:
+        print(f"ERROR: Course validation failed - {err_dict}")
         return jsonify(err_dict), err_code
 
-    date = data.get("date")
-    time_24 = data.get("time")
-    player_name = data.get("player_name")
-    phone_number = data.get("phone_number")
-    number_of_players = int(data.get("number_of_players", 1))
+    date = args.get("date")
+    time_24 = args.get("time")
+    player_name = args.get("player_name")
+    phone_number = args.get("phone_number") or args.get("phone")  # Support both field names
+    num_players_raw = args.get("number_of_players") or args.get("num_players", 1)
+    
+    try:
+        number_of_players = int(num_players_raw)
+    except (ValueError, TypeError):
+        number_of_players = 1
 
     # Basic validations
     if not date or not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
-        return jsonify({"error": "Invalid or missing 'date' (expected YYYY-MM-DD)"}), 400
+        print(f"ERROR: Invalid date format: {date}")
+        return jsonify({"error": f"Invalid or missing 'date' (expected YYYY-MM-DD, got {date})"}), 400
     if not time_24 or not re.match(r"^\d{2}:\d{2}$", time_24):
-        return jsonify({"error": "Invalid or missing 'time' (expected HH:MM 24h)"}), 400
-    if not player_name or not phone_number:
-        return jsonify({"error": "Missing player_name or phone_number"}), 400
+        print(f"ERROR: Invalid time format: {time_24}")
+        return jsonify({"error": f"Invalid or missing 'time' (expected HH:MM 24h, got {time_24})"}), 400
+    if not player_name:
+        print(f"ERROR: Missing player_name")
+        return jsonify({"error": "Missing player_name"}), 400
+    if not phone_number:
+        print(f"ERROR: Missing phone_number")
+        return jsonify({"error": "Missing phone_number"}), 400
     if number_of_players < 1 or number_of_players > 4:
+        print(f"ERROR: Invalid number_of_players: {number_of_players}")
         return jsonify({"error": "number_of_players must be between 1 and 4"}), 400
 
     # Time window checks (no past bookings today, honor open/close)
@@ -194,6 +222,7 @@ def book_tee_time():
     close_min = hhmm_to_minutes(course["hours"]["close"])
 
     if req_min < open_min or req_min >= close_min:
+        print(f"ERROR: Time outside operating hours")
         return jsonify({"error": "Requested time is outside operating hours"}), 400
 
     if is_today(date):
@@ -202,11 +231,14 @@ def book_tee_time():
         # round now up to next 10-min slot for fairness
         now_min_rounded = clamp_start_to_next_slot(now_min, 10)
         if req_min < now_min_rounded:
+            print(f"ERROR: Requested time has passed")
             return jsonify({"error": "Requested time has already passed"}), 400
 
     # Fake confirmation number
     confirmation_number = f"{course['name'][:2].upper()}-{now_local().strftime('%y%m%d%H%M')}"
 
+    print(f"SUCCESS: Booking confirmed - {confirmation_number}")
+    
     return jsonify({
         "success": True,
         "confirmation_number": confirmation_number,
@@ -221,8 +253,11 @@ def book_tee_time():
 
 @app.route("/get_course_info", methods=["POST"])
 def get_course_info():
+    # Retell sends: {"call": {...}, "name": "get_course_info", "args": {...}}
     data = request.get_json(silent=True) or {}
-    course_id = data.get("course_id", "")
+    args = data.get("args", data)  # Support both Retell format and direct calls
+    
+    course_id = args.get("course_id", "")
     course, err_dict, err_code = validate_course(course_id)
     if err_dict:
         return jsonify(err_dict), err_code
@@ -238,8 +273,11 @@ def get_course_info():
 
 @app.route("/get_weather_conditions", methods=["POST"])
 def get_weather_conditions():
+    # Retell sends: {"call": {...}, "name": "get_weather_conditions", "args": {...}}
     data = request.get_json(silent=True) or {}
-    course_id = data.get("course_id", "")
+    args = data.get("args", data)  # Support both Retell format and direct calls
+    
+    course_id = args.get("course_id", "")
     course, err_dict, err_code = validate_course(course_id)
     if err_dict:
         return jsonify(err_dict), err_code
@@ -273,4 +311,4 @@ def root():
 if __name__ == "__main__":
     # Render launches via gunicorn, but this lets you run locally too.
     port = int(os.getenv("PORT", "10000"))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
